@@ -9,9 +9,13 @@ window.addEventListener('message', (event) => {
   if (event.source !== window) return;
 
   if (event.data.type === 'PRIVACY_EXT_GEO') {
-    chrome.runtime.sendMessage({ type: 'GEOLOCATION_ATTEMPT' });
+    if (chrome.runtime?.id) {
+      chrome.runtime.sendMessage({ type: 'GEOLOCATION_ATTEMPT' });
+    }
   } else if (event.data.type === 'PRIVACY_EXT_FINGERPRINT') {
-    chrome.runtime.sendMessage({ type: 'FINGERPRINTING_ATTEMPT', method: event.data.method });
+    if (chrome.runtime?.id) {
+      chrome.runtime.sendMessage({ type: 'FINGERPRINTING_ATTEMPT', method: event.data.method });
+    }
   }
 });
 
@@ -20,7 +24,9 @@ window.addEventListener('message', (event) => {
 // Reference: uBlock/src/js/contentscript.js (domWatcher)
 
 document.addEventListener('submit', (e) => {
-  chrome.runtime.sendMessage({ type: 'FORM_SUBMISSION', action: 'submit' });
+  if (chrome.runtime?.id) {
+    chrome.runtime.sendMessage({ type: 'FORM_SUBMISSION', action: 'submit' });
+  }
 }, true); // Capture phase
 
 // Optional: Detect input interaction (typing)
@@ -30,7 +36,9 @@ document.addEventListener('input', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
     clearTimeout(inputTimeout);
     inputTimeout = setTimeout(() => {
-      chrome.runtime.sendMessage({ type: 'FORM_SUBMISSION', action: 'input' });
+      if (chrome.runtime?.id) {
+        chrome.runtime.sendMessage({ type: 'FORM_SUBMISSION', action: 'input' });
+      }
     }, 1000);
   }
 }, true);

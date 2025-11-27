@@ -76,7 +76,8 @@ function updateTips(data) {
   });
 
   if (foundTrackers.size > 0) {
-    tips.push(`Major trackers detected: ${Array.from(foundTrackers).join(', ')}. These companies build profiles of your browsing habits.`);
+    const trackerNames = Array.from(foundTrackers).join(', ');
+    tips.push('Major trackers detected: ' + trackerNames + '. These companies build profiles of your browsing habits.');
   }
 
   // 4. Existing Checks
