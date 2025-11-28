@@ -13,10 +13,16 @@
       --text-secondary: #94a3b8;
       --accent-color: #3b82f6;
       --danger-color: #ef4444;
+      --warning-color: #f59e0b;
+      --success-color: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
-      width: 340px;
+      width: 360px;
       font-family: 'Inter', sans-serif;
       margin: 0;
       padding: 0;
@@ -42,42 +48,67 @@
     }
 
     .logo {
-      width: 20px;
-      height: 20px;
+      width: 24px;
+      height: 24px;
       margin-right: 12px;
     }
 
+    .title-row {
+      display: flex;
+      align-items: center;
+    }
+
+    .site-info {
+      padding: 12px 20px;
+      background: rgba(59, 130, 246, 0.1);
+      border-bottom: 1px solid #334155;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .site-info .domain {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
     .dashboard {
-      padding: 20px;
+      padding: 16px;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
     }
 
     .card {
       background-color: var(--card-bg);
-      border-radius: 8px;
-      padding: 16px;
+      border-radius: 10px;
+      padding: 14px 12px;
       text-align: center;
       border: 1px solid #334155;
-      transition: border-color 0.2s;
+      transition: border-color 0.2s, transform 0.1s;
+      cursor: pointer;
     }
 
     .card:hover {
       border-color: #475569;
+      transform: translateY(-1px);
     }
 
     .card h2 {
-      font-size: 11px;
-      margin: 0 0 8px 0;
+      font-size: 10px;
+      margin: 0 0 6px 0;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--text-secondary);
       font-weight: 600;
     }
 
+    .card .icon {
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
     .count {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 600;
       color: var(--text-primary);
     }
@@ -86,51 +117,93 @@
       color: var(--danger-color);
     }
 
-    .tips-section {
-      margin: 0 20px 20px 20px;
-      background-color: rgba(59, 130, 246, 0.1);
-      border-radius: 8px;
-      padding: 16px;
-      border: 1px solid rgba(59, 130, 246, 0.2);
+    .count.warning {
+      color: var(--warning-color);
     }
 
-    .tips-section h3 {
-      margin: 0 0 8px 0;
-      font-size: 12px;
-      color: var(--accent-color);
+    .count.safe {
+      color: var(--success-color);
+    }
+
+    .section-header {
+      padding: 12px 20px 8px;
+      font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      color: var(--text-secondary);
     }
 
-    .tips-section ul {
-      margin: 0;
-      padding-left: 20px;
+    .tips-section {
+      margin: 0 16px 16px 16px;
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      padding: 14px;
+      border: 1px solid #334155;
+    }
+
+    .tip-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
       font-size: 12px;
       color: var(--text-secondary);
       line-height: 1.5;
+      border-bottom: 1px solid #334155;
+    }
+
+    .tip-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .tip-item:first-child {
+      padding-top: 0;
+    }
+
+    .tip-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .tip-icon.danger { color: var(--danger-color); }
+    .tip-icon.warning { color: var(--warning-color); }
+    .tip-icon.info { color: var(--accent-color); }
+
+    .empty-state {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .empty-state .icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      opacity: 0.5;
     }
 
     .footer {
-      padding: 16px 20px;
+      padding: 16px;
       background-color: #1e293b;
       border-top: 1px solid #334155;
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
 
     button {
       background-color: #334155;
       color: var(--text-primary);
       border: 1px solid #475569;
-      border-radius: 6px;
-      padding: 10px;
+      border-radius: 8px;
+      padding: 10px 14px;
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
-      width: 100%;
+      flex: 1;
     }
 
     button:hover {
@@ -148,9 +221,66 @@
       background-color: #2563eb;
     }
 
-    .title-row {
+    .tracker-preview {
+      margin: 0 16px 16px 16px;
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      border: 1px solid #334155;
+      overflow: hidden;
+    }
+
+    .tracker-item {
       display: flex;
+      justify-content: space-between;
       align-items: center;
+      padding: 10px 14px;
+      font-size: 12px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .tracker-item:last-child {
+      border-bottom: none;
+    }
+
+    .tracker-name {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .tracker-category {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .tracker-category.analytics {
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+    }
+
+    .tracker-category.advertising {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    .tracker-category.social {
+      background: rgba(168, 85, 247, 0.2);
+      color: #c084fc;
+    }
+
+    .see-all {
+      text-align: center;
+      padding: 10px;
+      font-size: 12px;
+      color: var(--accent-color);
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .see-all:hover {
+      color: #60a5fa;
     }
   </style>
 </head>
@@ -163,36 +293,61 @@
     </div>
   </div>
 
+  <div class="site-info">
+    Monitoring: <span id="current-site" class="domain">Loading...</span>
+  </div>
+
   <div class="dashboard">
-    <div class="card" title="Total network requests made by this page">
+    <div class="card" title="Third-party network requests">
+      <div class="icon">🌐</div>
       <h2>Requests</h2>
       <span id="network-count" class="count">0</span>
     </div>
 
-    <div class="card" title="Cookies set by third parties">
+    <div class="card" title="Cookies set on this page">
+      <div class="icon">🍪</div>
       <h2>Cookies</h2>
       <span id="cookie-count" class="count">0</span>
     </div>
 
+    <div class="card" title="Third-party cookies">
+      <div class="icon">👁️</div>
+      <h2>3rd Party</h2>
+      <span id="third-party-count" class="count">0</span>
+    </div>
+
     <div class="card" title="Geolocation access attempts">
+      <div class="icon">📍</div>
       <h2>Location</h2>
       <span id="geo-count" class="count">0</span>
     </div>
 
-    <div class="card" title="Form submissions and input tracking">
+    <div class="card" title="Form interactions detected">
+      <div class="icon">📝</div>
       <h2>Forms</h2>
       <span id="form-count" class="count">0</span>
     </div>
+
+    <div class="card" title="Fingerprinting attempts detected">
+      <div class="icon">🔍</div>
+      <h2>Fingerprint</h2>
+      <span id="fingerprint-count" class="count">0</span>
+    </div>
   </div>
 
-  <div id="tips-container" class="tips-section" style="display: none;">
-    <h3>Privacy Insights</h3>
-    <ul id="tips-list"></ul>
+  <div id="trackers-section" style="display: none;">
+    <div class="section-header">Known Trackers Detected</div>
+    <div id="tracker-preview" class="tracker-preview"></div>
+  </div>
+
+  <div id="tips-section" style="display: none;">
+    <div class="section-header">Privacy Insights</div>
+    <div id="tips-container" class="tips-section"></div>
   </div>
 
   <div class="footer">
-    <button id="report-btn">View Privacy Report</button>
-    <button id="clear-btn">Reset Statistics</button>
+    <button id="clear-btn">Reset</button>
+    <button id="report-btn">View Full Report</button>
   </div>
 
   <script src="popup.js"></script>

@@ -1,5 +1,39 @@
 // Background Service Worker
 
+// Known tracker domains for categorization
+const KNOWN_TRACKERS = {
+  'google-analytics.com': { name: 'Google Analytics', category: 'analytics' },
+  'googletagmanager.com': { name: 'Google Tag Manager', category: 'analytics' },
+  'facebook.net': { name: 'Facebook Pixel', category: 'social' },
+  'facebook.com': { name: 'Facebook', category: 'social' },
+  'doubleclick.net': { name: 'Google Ads', category: 'advertising' },
+  'googlesyndication.com': { name: 'Google Ads', category: 'advertising' },
+  'amazon-adsystem.com': { name: 'Amazon Ads', category: 'advertising' },
+  'criteo.com': { name: 'Criteo', category: 'advertising' },
+  'hotjar.com': { name: 'Hotjar', category: 'analytics' },
+  'mixpanel.com': { name: 'Mixpanel', category: 'analytics' },
+  'segment.io': { name: 'Segment', category: 'analytics' },
+  'segment.com': { name: 'Segment', category: 'analytics' },
+  'amplitude.com': { name: 'Amplitude', category: 'analytics' },
+  'clarity.ms': { name: 'Microsoft Clarity', category: 'analytics' },
+  'bing.com': { name: 'Bing Ads', category: 'advertising' },
+  'linkedin.com': { name: 'LinkedIn Insight', category: 'social' },
+  'twitter.com': { name: 'Twitter/X Pixel', category: 'social' },
+  'tiktok.com': { name: 'TikTok Pixel', category: 'social' },
+  'snapchat.com': { name: 'Snapchat Pixel', category: 'social' },
+  'pinterest.com': { name: 'Pinterest Tag', category: 'social' },
+  'adsrvr.org': { name: 'The Trade Desk', category: 'advertising' },
+  'taboola.com': { name: 'Taboola', category: 'advertising' },
+  'outbrain.com': { name: 'Outbrain', category: 'advertising' },
+  'quantserve.com': { name: 'Quantcast', category: 'analytics' },
+  'scorecardresearch.com': { name: 'Scorecard Research', category: 'analytics' },
+  'newrelic.com': { name: 'New Relic', category: 'analytics' },
+  'sentry.io': { name: 'Sentry', category: 'analytics' },
+  'fullstory.com': { name: 'FullStory', category: 'analytics' },
+  'mouseflow.com': { name: 'Mouseflow', category: 'analytics' },
+  'crazyegg.com': { name: 'Crazy Egg', category: 'analytics' }
+};
+
 // Initialize storage on install
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
@@ -9,25 +43,56 @@ chrome.runtime.onInstalled.addListener(() => {
     fingerprintingAttempts: [],
     formData: [],
     globalStats: {
-      trackers: {}, // { "google.com": { count: 0, sites: [] } }
-      websitesVisited: []
+      trackers: {},
+      websitesVisited: [],
+      totalRequests: 0,
+      totalCookies: 0
     }
   });
-  console.log("Privacy Extension Installed");
+  console.log("Privacy Origin Extension Installed");
 });
 
+// Helper to extract root domain
+function getRootDomain(hostname) {
+  const parts = hostname.split('.');
+  if (parts.length <= 2) return hostname;
+  // Handle common TLDs like co.uk, com.au, etc.
+  const knownSecondLevel = ['co', 'com', 'net', 'org', 'gov', 'edu'];
+  if (parts.length >= 3 && knownSecondLevel.includes(parts[parts.length - 2])) {
+    return parts.slice(-3).join('.');
+  }
+  return parts.slice(-2).join('.');
+}
+
+// Check if a domain is a known tracker
+function getTrackerInfo(hostname) {
+  for (const [domain, info] of Object.entries(KNOWN_TRACKERS)) {
+    if (hostname.includes(domain)) {
+      return { domain, ...info };
+    }
+  }
+  return null;
+}
+
 // Helper to update global stats
-function updateGlobalStats(trackerDomain, currentSite) {
+function updateGlobalStats(trackerDomain, currentSite, isKnownTracker = false) {
   if (!trackerDomain || !currentSite || trackerDomain === currentSite) return;
 
   chrome.storage.local.get(['globalStats'], (result) => {
-    const stats = result.globalStats || { trackers: {}, websitesVisited: [] };
+    const stats = result.globalStats || { trackers: {}, websitesVisited: [], totalRequests: 0, totalCookies: 0 };
 
     // Update Tracker Stats
     if (!stats.trackers[trackerDomain]) {
-      stats.trackers[trackerDomain] = { count: 0, sites: [] };
+      stats.trackers[trackerDomain] = { 
+        count: 0, 
+        sites: [],
+        isKnown: isKnownTracker,
+        firstSeen: Date.now()
+      };
     }
     stats.trackers[trackerDomain].count++;
+    stats.trackers[trackerDomain].lastSeen = Date.now();
+    
     if (!stats.trackers[trackerDomain].sites.includes(currentSite)) {
       stats.trackers[trackerDomain].sites.push(currentSite);
     }
@@ -43,7 +108,7 @@ function updateGlobalStats(trackerDomain, currentSite) {
 
 // Clear data for a tab when it navigates
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'loading') {
+  if (changeInfo.status === 'loading' && changeInfo.url) {
     chrome.storage.local.get(['networkRequests', 'cookies', 'geolocationAttempts', 'fingerprintingAttempts', 'formData'], (result) => {
       const clean = (arr) => (arr || []).filter(item => item.tabId !== tabId);
 
@@ -58,42 +123,84 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Network Request Monitoring (Reference: uBlock/src/js/traffic.js)
+// Clean up when tab is closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.storage.local.get(['networkRequests', 'cookies', 'geolocationAttempts', 'fingerprintingAttempts', 'formData'], (result) => {
+    const clean = (arr) => (arr || []).filter(item => item.tabId !== tabId);
+
+    chrome.storage.local.set({
+      networkRequests: clean(result.networkRequests),
+      cookies: clean(result.cookies),
+      geolocationAttempts: clean(result.geolocationAttempts),
+      fingerprintingAttempts: clean(result.fingerprintingAttempts),
+      formData: clean(result.formData)
+    });
+  });
+});
+
+// Network Request Monitoring
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
     if (details.tabId === -1) return; // Ignore background requests
 
-    // Log the request
+    let trackerHost = null;
+    let initiatorHost = null;
+    let isThirdParty = false;
+    let trackerInfo = null;
+
+    try {
+      trackerHost = new URL(details.url).hostname;
+      initiatorHost = details.initiator ? new URL(details.initiator).hostname : null;
+      
+      if (initiatorHost) {
+        const trackerRoot = getRootDomain(trackerHost);
+        const initiatorRoot = getRootDomain(initiatorHost);
+        isThirdParty = trackerRoot !== initiatorRoot;
+      }
+      
+      trackerInfo = getTrackerInfo(trackerHost);
+    } catch (e) { }
+
     const logEntry = {
       url: details.url,
       type: details.type,
       initiator: details.initiator,
       tabId: details.tabId,
-      timeStamp: Date.now()
+      timeStamp: Date.now(),
+      isThirdParty,
+      trackerInfo: trackerInfo ? {
+        name: trackerInfo.name,
+        category: trackerInfo.category
+      } : null
     };
 
-    // Global Stats Aggregation
-    try {
-      const trackerHost = new URL(details.url).hostname;
-      const initiatorHost = details.initiator ? new URL(details.initiator).hostname : null;
-      if (initiatorHost && !trackerHost.includes(initiatorHost)) {
-        updateGlobalStats(trackerHost, initiatorHost);
-      }
-    } catch (e) { }
+    // Update global stats for third-party requests
+    if (isThirdParty && initiatorHost) {
+      updateGlobalStats(trackerHost, initiatorHost, !!trackerInfo);
+    }
 
-    // Store in local storage (limit to last 100 for performance)
-    chrome.storage.local.get(['networkRequests'], (result) => {
+    // Store in local storage
+    chrome.storage.local.get(['networkRequests', 'globalStats'], (result) => {
       const requests = result.networkRequests || [];
       requests.push(logEntry);
-      // Removed hard limit of 100, but let's keep a safety cap of 2000 to prevent memory issues
-      if (requests.length > 2000) requests.shift();
-      chrome.storage.local.set({ networkRequests: requests });
+      
+      // Keep last 500 per-tab requests for performance
+      const filtered = requests.slice(-500);
+      
+      // Update total count
+      const stats = result.globalStats || { trackers: {}, websitesVisited: [], totalRequests: 0, totalCookies: 0 };
+      stats.totalRequests++;
+      
+      chrome.storage.local.set({ 
+        networkRequests: filtered,
+        globalStats: stats
+      });
     });
   },
   { urls: ["<all_urls>"] }
 );
 
-// Cookie Monitoring (Reference: uBlock/src/js/httpheader-filtering.js)
+// Cookie Monitoring
 chrome.webRequest.onHeadersReceived.addListener(
   (details) => {
     if (details.tabId === -1) return;
@@ -101,36 +208,70 @@ chrome.webRequest.onHeadersReceived.addListener(
     if (details.responseHeaders) {
       details.responseHeaders.forEach((header) => {
         if (header.name.toLowerCase() === 'set-cookie') {
-          // Basic 3rd party check
-          const initiator = details.initiator ? new URL(details.initiator).hostname : 'unknown';
-          let url = 'unknown';
+          let initiatorHost = null;
+          let urlHost = null;
+          let isThirdParty = false;
+
           try {
-            url = new URL(details.url).hostname;
+            urlHost = new URL(details.url).hostname;
+            initiatorHost = details.initiator ? new URL(details.initiator).hostname : null;
+            
+            if (initiatorHost) {
+              const urlRoot = getRootDomain(urlHost);
+              const initiatorRoot = getRootDomain(initiatorHost);
+              isThirdParty = urlRoot !== initiatorRoot;
+            }
           } catch (e) { }
 
-          // If initiator domain doesn't match request domain, it's likely 3rd party
-          const isThirdParty = initiator !== 'unknown' && url !== 'unknown' && !url.includes(initiator);
-
-          if (isThirdParty) {
-            updateGlobalStats(url, initiator);
-          }
+          // Parse cookie attributes
+          const cookieParts = header.value.split(';').map(p => p.trim());
+          const cookieNameValue = cookieParts[0];
+          const attributes = {};
+          
+          cookieParts.slice(1).forEach(part => {
+            const [key, value] = part.split('=');
+            if (key) {
+              attributes[key.toLowerCase()] = value || true;
+            }
+          });
 
           const logEntry = {
             url: details.url,
-            cookie: header.value,
-            isThirdParty: isThirdParty,
+            domain: urlHost,
+            cookie: cookieNameValue.split('=')[0], // Just the name, not value for privacy
+            isThirdParty,
+            isSecure: !!attributes.secure,
+            isHttpOnly: !!attributes.httponly,
+            sameSite: attributes.samesite || 'none specified',
             tabId: details.tabId,
             timeStamp: Date.now()
           };
 
-          chrome.storage.local.get(['cookies'], (result) => {
+          if (isThirdParty && initiatorHost) {
+            updateGlobalStats(urlHost, initiatorHost, !!getTrackerInfo(urlHost));
+          }
+
+          chrome.storage.local.get(['cookies', 'globalStats'], (result) => {
             const cookies = result.cookies || [];
-            // Avoid duplicates for the same URL/Cookie combo to keep list clean
-            const exists = cookies.some(c => c.url === logEntry.url && c.cookie === logEntry.cookie && c.tabId === logEntry.tabId);
+            
+            // Avoid duplicates
+            const exists = cookies.some(c => 
+              c.domain === logEntry.domain && 
+              c.cookie === logEntry.cookie && 
+              c.tabId === logEntry.tabId
+            );
+            
             if (!exists) {
               cookies.push(logEntry);
-              if (cookies.length > 2000) cookies.shift();
-              chrome.storage.local.set({ cookies: cookies });
+              if (cookies.length > 500) cookies.shift();
+              
+              const stats = result.globalStats || { trackers: {}, websitesVisited: [], totalRequests: 0, totalCookies: 0 };
+              stats.totalCookies++;
+              
+              chrome.storage.local.set({ 
+                cookies: cookies,
+                globalStats: stats
+              });
             }
           });
         }
@@ -141,30 +282,49 @@ chrome.webRequest.onHeadersReceived.addListener(
   ["responseHeaders", "extraHeaders"]
 );
 
-// Listen for messages from content script (Geolocation & Forms)
+// Listen for messages from content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!sender.tab) return;
+
+  const tabId = sender.tab.id;
+  const tabUrl = sender.tab.url;
 
   if (message.type === 'GEOLOCATION_ATTEMPT') {
     chrome.storage.local.get(['geolocationAttempts'], (result) => {
       const attempts = result.geolocationAttempts || [];
-      attempts.push({
-        url: sender.tab.url,
-        tabId: sender.tab.id,
-        timeStamp: Date.now()
-      });
-      chrome.storage.local.set({ geolocationAttempts: attempts });
+      
+      // Debounce: don't log if we logged this tab recently
+      const recentAttempt = attempts.find(a => 
+        a.tabId === tabId && 
+        (Date.now() - a.timeStamp < 5000)
+      );
+      
+      if (!recentAttempt) {
+        attempts.push({
+          url: tabUrl,
+          method: message.method || 'unknown',
+          tabId: tabId,
+          timeStamp: Date.now()
+        });
+        chrome.storage.local.set({ geolocationAttempts: attempts });
+      }
     });
   } else if (message.type === 'FINGERPRINTING_ATTEMPT') {
     chrome.storage.local.get(['fingerprintingAttempts'], (result) => {
       const attempts = result.fingerprintingAttempts || [];
-      // Debounce: check if we logged this recently (last 1s) for this tab
-      const lastAttempt = attempts[attempts.length - 1];
-      if (!lastAttempt || lastAttempt.tabId !== sender.tab.id || (Date.now() - lastAttempt.timeStamp > 1000)) {
+      
+      // Debounce fingerprinting attempts per tab (2 second window)
+      const recentAttempt = attempts.find(a => 
+        a.tabId === tabId && 
+        a.method === message.method &&
+        (Date.now() - a.timeStamp < 2000)
+      );
+      
+      if (!recentAttempt) {
         attempts.push({
-          url: sender.tab.url,
+          url: tabUrl,
           method: message.method,
-          tabId: sender.tab.id,
+          tabId: tabId,
           timeStamp: Date.now()
         });
         chrome.storage.local.set({ fingerprintingAttempts: attempts });
@@ -173,13 +333,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === 'FORM_SUBMISSION') {
     chrome.storage.local.get(['formData'], (result) => {
       const data = result.formData || [];
+      
+      // For 'input' actions, debounce more aggressively (5 seconds)
+      if (message.action === 'input') {
+        const recentInput = data.find(d => 
+          d.tabId === tabId && 
+          d.action === 'input' &&
+          (Date.now() - d.timeStamp < 5000)
+        );
+        if (recentInput) return;
+      }
+      
       data.push({
-        url: sender.tab.url,
-        action: message.action, // 'submit' or 'input'
-        tabId: sender.tab.id,
+        url: tabUrl,
+        action: message.action,
+        fieldType: message.fieldType || 'unknown',
+        tabId: tabId,
         timeStamp: Date.now()
       });
+      
+      if (data.length > 200) data.shift();
       chrome.storage.local.set({ formData: data });
     });
   }
 });
+
+// Export tracker info for other scripts
+self.KNOWN_TRACKERS = KNOWN_TRACKERS;

@@ -1,15 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Privacy Awareness Extension",
-  "version": "1.0",
-  "description": "Educates users on what is being tracked and collected when they visit a website.",
+  "name": "Privacy Origin",
+  "version": "1.0.0",
+  "description": "Educates users about data tracking and privacy without blocking functionality. See what websites collect about you.",
   "permissions": [
     "webRequest",
     "storage",
     "tabs",
-    "activeTab",
-    "scripting",
-    "geolocation"
+    "activeTab"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -19,21 +17,13 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content_script.js"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["content_script.js"],
       "run_at": "document_start"
     },
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "injected_hooks.js"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["injected_hooks.js"],
       "run_at": "document_start",
       "world": "MAIN"
     }
